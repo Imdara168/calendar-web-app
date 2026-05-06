@@ -55,6 +55,9 @@ export function EventModal({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false)
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false)
+  const deleteConfirmRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (editEvent) {
@@ -88,7 +91,21 @@ export function EventModal({
     }
     setNewAttendee('')
     setError('')
+    setIsDeleteConfirmVisible(false)
   }, [editEvent, initialDate, isOpen])
+
+  useEffect(() => {
+    if (!isDeleteConfirmVisible) {
+      return
+    }
+
+    window.requestAnimationFrame(() => {
+      deleteConfirmRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      })
+    })
+  }, [isDeleteConfirmVisible])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -176,28 +193,44 @@ export function EventModal({
     }
   }
 
+  const handleConfirmDelete = async () => {
+    if (!onDelete) return
+
+    try {
+      setError('')
+      setIsDeletingEvent(true)
+      await onDelete()
+      setIsDeleteConfirmVisible(false)
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete event')
+    } finally {
+      setIsDeletingEvent(false)
+    }
+  }
+
   if (!isOpen) return null
 
   const formattedDate = format(parseLocalDate(date), 'EEEE, MMMM d, yyyy')
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} modal={false}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{editEvent ? 'Edit Event' : 'New Event'}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Event title"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Event title"
+              />
+            </div>
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
@@ -416,26 +449,57 @@ export function EventModal({
             )}
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+            {isDeleteConfirmVisible && editEvent && onDelete && (
+              <div
+                ref={deleteConfirmRef}
+                className="rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <Trash2 className="mt-0.5 h-5 w-5 text-destructive" />
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">
+                        Are you sure you want to delete "{title.trim() || editEvent.title}"?
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        This will permanently remove the event and delete its attached files from Reports and Documents.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isDeletingEvent}
+                        onClick={() => setIsDeleteConfirmVisible(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={isDeletingEvent}
+                        onClick={() => void handleConfirmDelete()}
+                      >
+                        {isDeletingEvent ? 'Deleting...' : 'Confirm to delete'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
-          <DialogFooter>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+          </div>
+
+          <DialogFooter className="mt-4 border-t pt-4">
             {editEvent && onDelete && (
               <Button
                 type="button"
                 variant="destructive"
-                disabled={isSubmitting}
-                onClick={async () => {
-                  try {
-                    setIsSubmitting(true)
-                    await onDelete()
-                  } catch (deleteError) {
-                    setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete event')
-                  } finally {
-                    setIsSubmitting(false)
-                  }
-                }}
+                disabled={isSubmitting || isDeletingEvent}
+                onClick={() => setIsDeleteConfirmVisible(true)}
               >
                 Delete
               </Button>
@@ -445,12 +509,13 @@ export function EventModal({
               type="button"
               variant="outline"
               onClick={onClose}
+              disabled={isSubmitting || isDeletingEvent}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isDeletingEvent}
             >
               {isSubmitting ? 'Saving...' : editEvent ? 'Save Changes' : 'Create Event'}
             </Button>

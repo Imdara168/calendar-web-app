@@ -39,7 +39,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -68,9 +67,10 @@ type ClipboardState = {
 
 interface FileRowProps {
   file: DocumentFile;
+  showSelection: boolean;
   isSelected: boolean;
   onToggleSelection: (id: number) => void;
-  onDelete: (id: number) => void;
+  onDelete: (file: DocumentFile) => void;
   onView: (url: string) => void;
   onDownload: (url: string, name: string) => void;
   folderTitle?: string;
@@ -97,6 +97,7 @@ function readFileAsDataUrl(file: globalThis.File) {
 
 function FileRow({
   file,
+  showSelection,
   isSelected,
   onToggleSelection,
   onDelete,
@@ -120,19 +121,28 @@ function FileRow({
 
   return (
     <div
+      onClick={() => {
+        if (showSelection) {
+          onToggleSelection(file.id);
+        }
+      }}
       className={[
         "group flex flex-col gap-3 overflow-hidden rounded-lg border p-4 transition-all sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+        showSelection ? "cursor-pointer" : "",
         isSelected
           ? "border-primary bg-primary/5"
           : "border-border bg-background hover:border-primary/50",
       ].join(" ")}
     >
       <div className="flex min-w-0 w-full flex-1 items-start gap-3 sm:w-auto sm:items-center sm:gap-4">
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={() => onToggleSelection(file.id)}
-          className="mt-1 shrink-0 sm:mt-0"
-        />
+        {showSelection ? (
+          <Checkbox
+            checked={isSelected}
+            onClick={(event) => event.stopPropagation()}
+            onCheckedChange={() => onToggleSelection(file.id)}
+            className="mt-1 shrink-0 sm:mt-0"
+          />
+        ) : null}
 
         <div className="shrink-0 rounded-lg bg-muted p-2">{icon}</div>
 
@@ -165,7 +175,10 @@ function FileRow({
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => onView(file.url)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onView(file.url);
+          }}
           className="h-8 w-8 text-muted-foreground hover:text-foreground"
           title="View"
         >
@@ -174,7 +187,10 @@ function FileRow({
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => onDownload(file.url, file.name)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDownload(file.url, file.name);
+          }}
           className="h-8 w-8 text-muted-foreground hover:text-foreground"
           title="Download"
         >
@@ -183,9 +199,13 @@ function FileRow({
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => onDelete(file.id)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete(file);
+          }}
           className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           title="Delete"
+          disabled={showSelection}
         >
           <Trash2 className="w-4 h-4" />
         </Button>
@@ -208,13 +228,16 @@ export function Documents() {
     title: string;
   } | null>(null);
   const [isDeleteFileOpen, setIsDeleteFileOpen] = useState(false);
-  const [fileToDelete, setFileToDelete] = useState<number | null>(null);
+  const [filesToDelete, setFilesToDelete] = useState<DocumentFile[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [renameFolderName, setRenameFolderName] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<number[]>([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isSavingFolder, setIsSavingFolder] = useState(false);
+  const [isDeletingFolder, setIsDeletingFolder] = useState(false);
+  const [isDeletingFile, setIsDeletingFile] = useState(false);
   const [isOrganizing, setIsOrganizing] = useState(false);
   const [error, setError] = useState("");
   const [folderViewMode, setFolderViewMode] = useState<"card" | "flat">("flat");
@@ -323,6 +346,7 @@ export function Documents() {
     if (!folderToDelete) return;
 
     setError("");
+    setIsDeletingFolder(true);
 
     try {
       await deleteDocumentFolder(folderToDelete.id);
@@ -334,6 +358,8 @@ export function Documents() {
       await loadDocuments();
     } catch (deleteError) {
       setError(getApiErrorMessage(deleteError));
+    } finally {
+      setIsDeletingFolder(false);
     }
   }, [folderToDelete, loadDocuments, viewingFolder]);
 
@@ -382,6 +408,16 @@ export function Documents() {
     setSelectedFiles([]);
   };
 
+  const toggleSelectionMode = () => {
+    setIsSelectionMode((prev) => {
+      if (prev) {
+        setSelectedFiles([]);
+      }
+
+      return !prev;
+    });
+  };
+
   const handleMoveSelectedFiles = useCallback(
     async (folderId: string) => {
       if (selectedFiles.length === 0) return;
@@ -406,34 +442,48 @@ export function Documents() {
     [loadDocuments, selectedFiles],
   );
 
-  const handleDeleteFile = useCallback((fileId: number) => {
-    setFileToDelete(fileId);
+  const handleDeleteFile = useCallback((file: DocumentFile) => {
+    setFilesToDelete([file]);
     setIsDeleteFileOpen(true);
   }, []);
 
+  const handleDeleteSelectedFiles = useCallback(() => {
+    if (selectedFileObjects.length === 0) return;
+
+    setFilesToDelete(selectedFileObjects);
+    setIsDeleteFileOpen(true);
+  }, [selectedFileObjects]);
+
   const confirmDeleteFile = useCallback(async () => {
-    if (fileToDelete === null) return;
+    if (filesToDelete.length === 0) return;
 
     setError("");
+    setIsDeletingFile(true);
 
     try {
-      await deleteDocument(fileToDelete);
-      setSelectedFiles((prev) => prev.filter((id) => id !== fileToDelete));
+      await Promise.all(filesToDelete.map((file) => deleteDocument(file.id)));
+      const deletedIds = new Set(filesToDelete.map((file) => file.id));
       setClipboard((prev) =>
         prev
           ? {
               ...prev,
-              files: prev.files.filter((file) => file.id !== fileToDelete),
+              files: prev.files.filter((file) => !deletedIds.has(file.id)),
             }
           : null,
       );
+      setSelectedFiles((prev) => prev.filter((id) => !deletedIds.has(id)));
+      if (selectedFiles.length === deletedIds.size) {
+        setIsSelectionMode(false);
+      }
       setIsDeleteFileOpen(false);
-      setFileToDelete(null);
+      setFilesToDelete([]);
       await loadDocuments();
     } catch (deleteError) {
       setError(getApiErrorMessage(deleteError));
+    } finally {
+      setIsDeletingFile(false);
     }
-  }, [fileToDelete, loadDocuments]);
+  }, [filesToDelete, loadDocuments, selectedFiles.length]);
 
   const handleViewFile = (url: string) => {
     try {
@@ -583,6 +633,10 @@ export function Documents() {
       </Button>
     </div>
   );
+
+  const deleteFilesLabel =
+    selectedFileObjects.length > 1 ? "Delete All" : "Delete";
+  const isBulkDelete = filesToDelete.length > 1;
 
   return (
     <div className="min-w-0 space-y-6">
@@ -837,20 +891,20 @@ export function Documents() {
                   <File className="w-5 h-5 text-primary" />
                   Recent Files
                 </h3>
-                {selectedFiles.length > 0 && (
-                  <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {isSelectionMode && selectedFiles.length > 0 && (
                     <span className="text-sm font-medium text-primary">
                       {selectedFiles.length} selected
                     </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={clearSelection}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                )}
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={toggleSelectionMode}
+                  >
+                    {isSelectionMode ? "Cancel" : "Select"}
+                  </Button>
+                </div>
               </div>
 
               {files.length === 0 ? (
@@ -867,6 +921,7 @@ export function Documents() {
                     <FileRow
                       key={file.id}
                       file={file}
+                      showSelection={isSelectionMode}
                       isSelected={selectedFiles.includes(file.id)}
                       onToggleSelection={toggleFileSelection}
                       onDelete={handleDeleteFile}
@@ -931,6 +986,14 @@ export function Documents() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
+                  <Button
+                    variant="destructive"
+                    className="w-full justify-start"
+                    onClick={handleDeleteSelectedFiles}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {deleteFilesLabel}
+                  </Button>
                   <Button
                     variant="outline"
                     className="w-full justify-start"
@@ -998,6 +1061,13 @@ export function Documents() {
                 </DialogDescription>
               </div>
               <div className="flex flex-nowrap items-center gap-2 pr-10">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleSelectionMode}
+                >
+                  {isSelectionMode ? "Cancel" : "Select"}
+                </Button>
                 {selectedFileObjects.length > 0 && (
                   <>
                     <Button
@@ -1054,6 +1124,7 @@ export function Documents() {
                   <FileRow
                     key={file.id}
                     file={file}
+                    showSelection={isSelectionMode}
                     isSelected={selectedFiles.includes(file.id)}
                     onToggleSelection={toggleFileSelection}
                     onDelete={handleDeleteFile}
@@ -1146,7 +1217,15 @@ export function Documents() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteFolderOpen} onOpenChange={setIsDeleteFolderOpen}>
+      <AlertDialog
+        open={isDeleteFolderOpen}
+        onOpenChange={(open) => {
+          setIsDeleteFolderOpen(open);
+          if (!open && !isDeletingFolder) {
+            setFolderToDelete(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
@@ -1169,37 +1248,60 @@ export function Documents() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            <AlertDialogCancel disabled={isDeletingFolder}>Cancel</AlertDialogCancel>
+            <Button
               onClick={() => void confirmDeleteFolder()}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
+              disabled={isDeletingFolder}
             >
-              Delete Folder
-            </AlertDialogAction>
+              {isDeletingFolder ? "Deleting..." : "Confirm to delete"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={isDeleteFileOpen} onOpenChange={setIsDeleteFileOpen}>
+      <AlertDialog
+        open={isDeleteFileOpen}
+        onOpenChange={(open) => {
+          setIsDeleteFileOpen(open);
+          if (!open && !isDeletingFile) {
+            setFilesToDelete([]);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="h-5 w-5" />
-              Delete File?
+              {isBulkDelete ? "Delete Files?" : "Delete File?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the selected file. This action cannot
-              be undone.
+              {isBulkDelete ? (
+                <>Are you sure you want to delete these {filesToDelete.length} files?</>
+              ) : (
+                <>
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold text-foreground">
+                    "{filesToDelete[0]?.name}"
+                  </span>{" "}
+                  ?
+                </>
+              )}
+              <br />
+              <br />
+              This will remove {isBulkDelete ? "them" : "it"} everywhere, including all linked event
+              attachments. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            <AlertDialogCancel disabled={isDeletingFile}>Cancel</AlertDialogCancel>
+            <Button
               onClick={() => void confirmDeleteFile()}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
+              disabled={isDeletingFile}
             >
-              Delete File
-            </AlertDialogAction>
+              {isDeletingFile ? "Deleting..." : "Confirm to delete"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
