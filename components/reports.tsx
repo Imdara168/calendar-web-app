@@ -12,9 +12,9 @@ import {
   Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -58,11 +58,16 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
   const [hasSelected, setHasSelected] = useState(true)
   const [error, setError] = useState('')
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [reportToDelete, setReportToDelete] = useState<{
-    id: number;
-    fileName: string;
-    fileUrl: string;
-  } | null>(null)
+  const [isDeletingReport, setIsDeletingReport] = useState(false)
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [selectedReportIds, setSelectedReportIds] = useState<number[]>([])
+  const [reportsToDelete, setReportsToDelete] = useState<
+    {
+      id: number;
+      fileName: string;
+      fileUrl: string;
+    }[]
+  >([])
 
   // Load ALL reports once on mount
   useEffect(() => {
@@ -106,26 +111,59 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
   }
 
   const handleDelete = useCallback((id: number, fileName: string, fileUrl: string) => {
-    setReportToDelete({ id, fileName, fileUrl })
+    setReportsToDelete([{ id, fileName, fileUrl }])
     setIsDeleteDialogOpen(true)
   }, [])
 
+  const toggleReportSelection = useCallback((reportId: number) => {
+    setSelectedReportIds(prev =>
+      prev.includes(reportId)
+        ? prev.filter(id => id !== reportId)
+        : [...prev, reportId],
+    )
+  }, [])
+
+  const clearSelectedReports = useCallback(() => {
+    setSelectedReportIds([])
+  }, [])
+
+  const toggleSelectionMode = useCallback(() => {
+    setIsSelectionMode(prev => {
+      if (prev) {
+        setSelectedReportIds([])
+      }
+
+      return !prev
+    })
+  }, [])
+
   const confirmDelete = useCallback(async () => {
-    if (!reportToDelete) return
+    if (reportsToDelete.length === 0) return
 
     setError('')
+    setIsDeletingReport(true)
 
     try {
-      await deleteReport(reportToDelete.id)
-      setAllReports(prev => prev.filter(r => r.fileUrl !== reportToDelete.fileUrl))
-      setReports(prev => prev.filter(r => r.fileUrl !== reportToDelete.fileUrl))
+      await Promise.all(reportsToDelete.map(report => deleteReport(report.id)))
+
+      const deletedIds = new Set(reportsToDelete.map(report => report.id))
+      const deletedFileUrls = new Set(reportsToDelete.map(report => report.fileUrl))
+
+      setAllReports(prev => prev.filter(report => !deletedIds.has(report.id)))
+      setReports(prev => prev.filter(report => !deletedFileUrls.has(report.fileUrl)))
+      setSelectedReportIds(prev => prev.filter(id => !deletedIds.has(id)))
+      setIsSelectionMode(current =>
+        current && selectedReportIds.length === deletedIds.size ? false : current,
+      )
       setIsDeleteDialogOpen(false)
-      setReportToDelete(null)
+      setReportsToDelete([])
       await onEventsChanged()
     } catch (deleteError) {
       setError(getApiErrorMessage(deleteError))
+    } finally {
+      setIsDeletingReport(false)
     }
-  }, [onEventsChanged, reportToDelete])
+  }, [onEventsChanged, reportsToDelete, selectedReportIds.length])
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`
@@ -235,6 +273,32 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
       .sort((left, right) => right.sortValue - left.sortValue)
   }, [allReports, events])
 
+  const selectedUploadedFiles = useMemo(
+    () => allUploadedFiles.filter(file => file.reportId && selectedReportIds.includes(file.reportId)),
+    [allUploadedFiles, selectedReportIds],
+  )
+
+  const openBulkDeleteDialog = useCallback(() => {
+    const selectedReports = allUploadedFiles
+      .filter(file => file.reportId && selectedReportIds.includes(file.reportId))
+      .map(file => ({
+        id: file.reportId!,
+        fileName: file.fileName,
+        fileUrl: file.fileUrl,
+      }))
+
+    if (selectedReports.length === 0) {
+      return
+    }
+
+    setReportsToDelete(selectedReports)
+    setIsDeleteDialogOpen(true)
+  }, [allUploadedFiles, selectedReportIds])
+
+  const deleteActionLabel = selectedUploadedFiles.length > 1 ? 'Delete All' : 'Delete'
+  const isBulkDelete = reportsToDelete.length > 1
+  const deleteTargetNames = reportsToDelete.map(report => report.fileName)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-6">
@@ -338,9 +402,47 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
 
       {/* All Uploaded Files Section */}
       <div className="bg-card border border-border rounded-xl p-4 lg:p-6">
-        <h3 className="text-lg font-semibold text-foreground mb-4">
-          Uploaded Files ({allUploadedFiles.length})
-        </h3>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-foreground">
+            Uploaded Files ({allUploadedFiles.length})
+          </h3>
+          <div className="flex flex-wrap items-center gap-2">
+            {isSelectionMode && selectedUploadedFiles.length > 0 ? (
+              <>
+                <span className="text-sm font-medium text-primary">
+                  {selectedUploadedFiles.length} selected
+                </span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => openBulkDeleteDialog()}
+                >
+                  {deleteActionLabel}
+                </Button>
+              </>
+            ) : null}
+            {isSelectionMode ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  clearSelectedReports()
+                  toggleSelectionMode()
+                }}
+              >
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleSelectionMode()}
+              >
+                Select
+              </Button>
+            )}
+          </div>
+        </div>
 
         {isAllLoading ? (
           <div className="py-8 flex justify-center">
@@ -356,8 +458,27 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
             {allUploadedFiles.map((file) => (
               <div 
                 key={file.id}
-                className="flex items-center gap-4 rounded-lg border border-border bg-background p-4"
+                onClick={() => {
+                  if (isSelectionMode && file.reportId) {
+                    toggleReportSelection(file.reportId)
+                  }
+                }}
+                className={[
+                  "flex items-center gap-4 rounded-lg border border-border bg-background p-4",
+                  isSelectionMode && file.reportId ? "cursor-pointer" : "",
+                  file.reportId && selectedReportIds.includes(file.reportId)
+                    ? "border-primary bg-primary/5"
+                    : "",
+                ].join(' ')}
               >
+                {isSelectionMode && file.reportId ? (
+                  <Checkbox
+                    checked={selectedReportIds.includes(file.reportId)}
+                    onClick={(event) => event.stopPropagation()}
+                    onCheckedChange={() => toggleReportSelection(file.reportId!)}
+                    className="shrink-0"
+                  />
+                ) : null}
                 <div className="rounded-lg bg-muted p-2">
                   {getFileIcon(file.fileUrl)}
                 </div>
@@ -374,7 +495,10 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleViewFile(file.fileUrl)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleViewFile(file.fileUrl)
+                    }}
                     className="h-8 w-8 text-muted-foreground hover:text-foreground"
                     title="View"
                   >
@@ -383,7 +507,10 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => downloadStoredFile(file.fileUrl, file.fileName)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      downloadStoredFile(file.fileUrl, file.fileName)
+                    }}
                     className="h-8 w-8 text-muted-foreground hover:text-foreground"
                     title="Download"
                   >
@@ -393,9 +520,13 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleDelete(file.reportId!, file.fileName, file.fileUrl)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        handleDelete(file.reportId!, file.fileName, file.fileUrl)
+                      }}
                       className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                       title="Delete"
+                      disabled={isSelectionMode}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -410,33 +541,54 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
         )}
       </div>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open)
+          if (!open && !isDeletingReport) {
+            setReportsToDelete([])
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="h-5 w-5" />
-              Delete Report?
+              {isBulkDelete ? 'Delete Reports?' : 'Delete Report?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{" "}
-              <span className="font-semibold text-foreground">
-                "{reportToDelete?.fileName}"
-              </span>
-              ?
+              {isBulkDelete ? (
+                <>
+                  Are you sure you want to delete these {reportsToDelete.length} files?
+                  <br />
+                  <br />
+                  <span className="font-medium text-foreground">
+                    {deleteTargetNames.join(', ')}
+                  </span>
+                </>
+              ) : (
+                <>
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold text-foreground">
+                    "{reportsToDelete[0]?.fileName}"
+                  </span>
+                  ?
+                </>
+              )}
               <br />
               <br />
-              This will remove it everywhere, including all linked event
-              attachments. This action cannot be undone.
+              This will remove {isBulkDelete ? 'them' : 'it'} everywhere, including all linked event attachments. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            <AlertDialogCancel disabled={isDeletingReport}>Cancel</AlertDialogCancel>
+            <Button
               onClick={() => void confirmDelete()}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
+              disabled={isDeletingReport}
             >
-              Delete Everywhere
-            </AlertDialogAction>
+              {isDeletingReport ? 'Deleting...' : 'Confirm to delete'}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

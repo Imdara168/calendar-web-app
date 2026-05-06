@@ -134,16 +134,20 @@ export function Dashboard({ user, onLogout, activeView }: DashboardProps) {
   const handleDeleteEvent = useCallback(async () => {
     if (editingEvent) {
       try {
+        setError('')
         setSuccessMessage('')
         await deleteEvent(editingEvent.id)
         setEvents(prev => prev.filter(e => e.id !== editingEvent.id))
+        await loadEvents()
         setEditingEvent(null)
         setIsModalOpen(false)
       } catch (deleteError) {
-        setError(getApiErrorMessage(deleteError))
+        const message = getApiErrorMessage(deleteError)
+        setError(message)
+        throw new Error(message)
       }
     }
-  }, [editingEvent])
+  }, [editingEvent, loadEvents])
 
   const navItems = [
     { id: 'calendar' as const, label: 'Calendar', icon: Calendar, href: getViewPath('calendar') },
