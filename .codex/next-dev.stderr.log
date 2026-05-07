@@ -1,0 +1,252 @@
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+⨯ ./components/event-modal.tsx:481:7
+Expected ',', got 'ident'
+  [90m479 |[0m     </[33mDialog[0m>
+  [90m480 |[0m     <[33mAlertDialog[0m
+[31m[1m>[0m [90m481 |[0m       open={isDeleteDialogOpen}
+  [90m    |[0m       [31m[1m^^^^[0m
+  [90m482 |[0m       onOpenChange={(open) => {
+  [90m483 |[0m         [36mif[0m (!isDeletingEvent) {
+  [90m484 |[0m           setIsDeleteDialogOpen(open)
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./components/event-modal.tsx [Client Component Browser]
+    ./components/dashboard.tsx [Client Component Browser]
+    ./components/authenticated-app.tsx [Client Component Browser]
+    ./components/authenticated-app.tsx [Server Component]
+    ./app/calendar/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/event-modal.tsx [Client Component SSR]
+    ./components/dashboard.tsx [Client Component SSR]
+    ./components/authenticated-app.tsx [Client Component SSR]
+    ./components/authenticated-app.tsx [Server Component]
+    ./app/calendar/page.tsx [Server Component]
+
+
+⨯ ./components/event-modal.tsx:481:7
+Expected ',', got 'ident'
+  [90m479 |[0m     </[33mDialog[0m>
+  [90m480 |[0m     <[33mAlertDialog[0m
+[31m[1m>[0m [90m481 |[0m       open={isDeleteDialogOpen}
+  [90m    |[0m       [31m[1m^^^^[0m
+  [90m482 |[0m       onOpenChange={(open) => {
+  [90m483 |[0m         [36mif[0m (!isDeletingEvent) {
+  [90m484 |[0m           setIsDeleteDialogOpen(open)
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./components/event-modal.tsx [Client Component Browser]
+    ./components/dashboard.tsx [Client Component Browser]
+    ./components/authenticated-app.tsx [Client Component Browser]
+    ./components/authenticated-app.tsx [Server Component]
+    ./app/calendar/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/event-modal.tsx [Client Component SSR]
+    ./components/dashboard.tsx [Client Component SSR]
+    ./components/authenticated-app.tsx [Client Component SSR]
+    ./components/authenticated-app.tsx [Server Component]
+    ./app/calendar/page.tsx [Server Component]
+
+
+⨯ ./components/event-modal.tsx:481:7
+Expected ',', got 'ident'
+  [90m479 |[0m     </[33mDialog[0m>
+  [90m480 |[0m     <[33mAlertDialog[0m
+[31m[1m>[0m [90m481 |[0m       open={isDeleteDialogOpen}
+  [90m    |[0m       [31m[1m^^^^[0m
+  [90m482 |[0m       onOpenChange={(open) => {
+  [90m483 |[0m         [36mif[0m (!isDeletingEvent) {
+  [90m484 |[0m           setIsDeleteDialogOpen(open)
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./components/event-modal.tsx [Client Component Browser]
+    ./components/dashboard.tsx [Client Component Browser]
+    ./components/authenticated-app.tsx [Client Component Browser]
+    ./components/authenticated-app.tsx [Server Component]
+    ./app/calendar/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/event-modal.tsx [Client Component SSR]
+    ./components/dashboard.tsx [Client Component SSR]
+    ./components/authenticated-app.tsx [Client Component SSR]
+    ./components/authenticated-app.tsx [Server Component]
+    ./app/calendar/page.tsx [Server Component]
+
+
+⨯ ./components/event-modal.tsx:481:7
+Expected ',', got 'ident'
+  [90m479 |[0m     </[33mDialog[0m>
+  [90m480 |[0m     <[33mAlertDialog[0m
+[31m[1m>[0m [90m481 |[0m       open={isDeleteDialogOpen}
+  [90m    |[0m       [31m[1m^^^^[0m
+  [90m482 |[0m       onOpenChange={(open) => {
+  [90m483 |[0m         [36mif[0m (!isDeletingEvent) {
+  [90m484 |[0m           setIsDeleteDialogOpen(open)
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./components/event-modal.tsx [Client Component Browser]
+    ./components/dashboard.tsx [Client Component Browser]
+    ./components/authenticated-app.tsx [Client Component Browser]
+    ./components/authenticated-app.tsx [Server Component]
+    ./app/calendar/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/event-modal.tsx [Client Component SSR]
+    ./components/dashboard.tsx [Client Component SSR]
+    ./components/authenticated-app.tsx [Client Component SSR]
+    ./components/authenticated-app.tsx [Server Component]
+    ./app/calendar/page.tsx [Server Component]
+
+
+[browser] Uncaught Error: ./components/event-modal.tsx:481:7
+Expected ',', got 'ident'
+  479 |     </Dialog>
+  480 |     <AlertDialog
+> 481 |       open={isDeleteDialogOpen}
+      |       ^^^^
+  482 |       onOpenChange={(open) => {
+  483 |         if (!isDeletingEvent) {
+  484 |           setIsDeleteDialogOpen(open)
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./components/event-modal.tsx [Client Component Browser]
+    ./components/dashboard.tsx [Client Component Browser]
+    ./components/authenticated-app.tsx [Client Component Browser]
+    ./components/authenticated-app.tsx [Server Component]
+    ./app/calendar/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/event-modal.tsx [Client Component SSR]
+    ./components/dashboard.tsx [Client Component SSR]
+    ./components/authenticated-app.tsx [Client Component SSR]
+    ./components/authenticated-app.tsx [Server Component]
+    ./app/calendar/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./components/event-modal.tsx:481:7)
+    at <unknown> (Error: (./components/event-modal.tsx:481:7)
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[browser] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.

@@ -53,7 +53,9 @@ export function EventModal({
   const [attachments, setAttachments] = useState<EventAttachment[]>([])
   const [isUploadingFile, setIsUploadingFile] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
+  const [titleError, setTitleError] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false)
   const [isDeletingEvent, setIsDeletingEvent] = useState(false)
@@ -91,6 +93,7 @@ export function EventModal({
     }
     setNewAttendee('')
     setError('')
+    setTitleError(false)
     setIsDeleteConfirmVisible(false)
   }, [editEvent, initialDate, isOpen])
 
@@ -163,9 +166,18 @@ export function EventModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setTitleError(false)
 
     if (!title.trim()) {
+      setTitleError(true)
       setError('Please enter a title')
+      window.requestAnimationFrame(() => {
+        titleInputRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        })
+        titleInputRef.current?.focus()
+      })
       return
     }
 
@@ -224,11 +236,18 @@ export function EventModal({
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
               <Input
+                ref={titleInputRef}
                 id="title"
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => {
+                  setTitle(e.target.value)
+                  if (titleError && e.target.value.trim()) {
+                    setTitleError(false)
+                  }
+                }}
                 placeholder="Event title"
+                aria-invalid={titleError}
               />
             </div>
 
