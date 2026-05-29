@@ -1,8 +1,13 @@
-import type { Metadata } from 'next'
-import { Geist, Geist_Mono, Kantumruy_Pro } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
+import { Geist, Geist_Mono, Kantumruy_Pro, Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+})
 
 const geist = Geist({ 
   subsets: ["latin"],
@@ -21,8 +26,8 @@ const kantumruy = Kantumruy_Pro({
 })
 
 export const metadata: Metadata = {
-  title: 'Calendar App - Schedule & Track Meetings',
-  description: 'A web calendar app with event tracking, time-based status updates, and analytics reports',
+  title: 'នាយកដ្ឋានចុះបញ្ជី - BUSINESS REGISTRATION',
+  description: 'នាយកដ្ឋានចុះបញ្ជី - BUSINESS REGISTRATION System',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -43,18 +48,25 @@ export const metadata: Metadata = {
   },
 }
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#F5F7FB',
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${geist.variable} ${geistMono.variable} ${kantumruy.variable} bg-background`}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${geist.variable} ${geistMono.variable} ${kantumruy.variable} bg-background`}>
       <body className="font-sans antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
         >
           {children}

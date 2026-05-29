@@ -12,50 +12,34 @@ export function parseLocalDate(dateStr: string): Date {
   return new Date(year, month - 1, day)
 }
 
-export function getCurrentTime(): string {
-  const now = new Date()
-  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-}
-
-export function formatTime12h(time24: string): string {
-  const [hours, minutes] = time24.split(':').map(Number)
+export function formatTime12h(isoStr: string): string {
+  const date = new Date(isoStr)
+  const hours = date.getHours()
+  const minutes = date.getMinutes()
   const period = hours >= 12 ? 'PM' : 'AM'
   const hours12 = hours % 12 || 12
   return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`
 }
 
-export function isEventCompleted(event: CalendarEvent): boolean {
-  const now = new Date()
-  const today = getLocalDateString(now)
-  const currentTime = getCurrentTime()
+export function getEventStatus(event: { startDate: string; endDate: string }, today: Date = new Date()): 'upcoming' | 'in-progress' | 'completed' {
+  const start = new Date(event.startDate)
+  const end = new Date(event.endDate)
 
-  if (event.date < today) {
-    return true
+  if (today < start) {
+    return 'upcoming'
   }
 
-  if (event.date === today && event.endTime <= currentTime) {
-    return true
+  if (today >= start && today <= end) {
+    return 'in-progress'
   }
 
-  return false
-}
-
-export function isEventInProgress(event: CalendarEvent): boolean {
-  const now = new Date()
-  const today = getLocalDateString(now)
-  const currentTime = getCurrentTime()
-
-  return event.date === today && event.startTime <= currentTime && currentTime < event.endTime
+  return 'completed'
 }
 
 export function updateEventStatus(event: CalendarEvent): CalendarEvent {
-  if (isEventCompleted(event)) {
-    return { ...event, status: 'completed' }
+  const status = getEventStatus(event)
+  if (status !== event.status) {
+    return { ...event, status }
   }
-
-  if (isEventInProgress(event)) {
-    return { ...event, status: 'in-progress' }
-  }
-
-  return { ...event, status: 'upcoming' }
+  return event
 }

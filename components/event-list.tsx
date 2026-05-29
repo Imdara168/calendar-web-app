@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { format } from 'date-fns'
+import { useState, useMemo } from 'react'
+import { format, isAfter, startOfDay } from 'date-fns'
 import {
   Plus,
   Clock,
@@ -13,26 +13,34 @@ import {
   ChevronUp,
   FileText,
   Download,
+  Zap,
+  TrendingUp,
+  ArrowRight,
 } from 'lucide-react'
+import { RunningText } from '@/components/ui/running-text'
 import type { CalendarEvent } from '@/lib/types'
-import { formatTime12h } from '@/lib/event-utils'
+import { formatTime12h, getLocalDateString, parseLocalDate } from '@/lib/event-utils'
 import { downloadStoredFile, openStoredFile } from '@/lib/file-utils'
 
 interface EventListProps {
   selectedDate: Date
   events: CalendarEvent[]
+  allEvents: CalendarEvent[]
   onAddEvent: () => void
   onEditEvent: (event: CalendarEvent) => void
+  activeFilter?: 'all' | 'upcoming' | 'in-progress' | 'completed' | null
+  currentDate?: Date
 }
 
 const categoryColors: Record<string, string> = {
-  meeting: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  task: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  reminder: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  other: 'bg-gray-100 text-gray-800 dark:bg-gray-800/30 dark:text-gray-300',
+  meeting: 'bg-purple-50 text-purple-700 border-purple-100',
+  task: 'bg-blue-50 text-blue-700 border-blue-100',
+  reminder: 'bg-amber-50 text-amber-700 border-amber-100',
+  urgent: 'bg-rose-50 text-rose-700 border-rose-100',
+  other: 'bg-slate-50 text-slate-700 border-slate-100',
 }
 
-const getCategoryColor = (category: string) => {
+const getCategoryStyles = (category: string) => {
   return categoryColors[category.toLowerCase()] || categoryColors.other
 }
 
@@ -42,216 +50,263 @@ const statusIcons = {
   completed: CheckCircle2,
 }
 
-const statusColors = {
-  upcoming: 'text-blue-500',
-  'in-progress': 'text-amber-500',
-  completed: 'text-green-500',
-}
+export function EventList({ 
+  selectedDate, 
+  events, 
+  allEvents, 
+  onAddEvent, 
+  onEditEvent,
+  activeFilter = 'all',
+  currentDate = new Date()
+}: EventListProps) {
+  const formattedDate = format(selectedDate, 'MMMM d, yyyy')
+  const currentMonthName = format(currentDate, 'MMMM yyyy')
+  const isSelectedToday = getLocalDateString(selectedDate) === getLocalDateString(new Date())
+  const [expandedEvents, setExpandedEvents] = useState<Record<number, boolean>>({})
 
-const formatFileSize = (bytes: number) => {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
+  const toggleAttendees = (eventId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setExpandedEvents(prev => ({
+      ...prev,
+      [eventId]: !prev[eventId]
+    }))
+  }
 
-export function EventList({ selectedDate, events, onAddEvent, onEditEvent }: EventListProps) {
-  const [expandedAttendees, setExpandedAttendees] = useState<number | null>(null)
-  const formattedDate = format(selectedDate, 'EEEE, MMMM d, yyyy')
+  const sortedEvents = useMemo(() => 
+    [...events]
+      .filter(e => e.startDate)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate)),
+  [events])
 
-  const sortedEvents = [...events].sort((a, b) => a.startTime.localeCompare(b.startTime))
+  const stats = useMemo(() => {
+    const total = events.length
+    const completed = events.filter(e => e.status === 'completed').length
+    const upcoming = allEvents.filter(e => e.status === 'upcoming').length
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0
+    
+    return { total, completed, upcoming, completionRate }
+  }, [events, allEvents])
+
+  const filterLabels: Record<string, string> = {
+    all: 'All Events',
+    upcoming: 'Upcoming Events',
+    'in-progress': 'Active Events',
+    completed: 'Completed Events'
+  }
 
   return (
-    <div className="overflow-x-hidden rounded-xl border border-border bg-card p-4 lg:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">Events</h3>
-          <p className="text-sm text-muted-foreground">{formattedDate}</p>
+    <div className="flex flex-col gap-6 h-full">
+      {/* Date & Add Event Section */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col">
+            <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-1">
+              {activeFilter === null 
+                ? (isSelectedToday ? "Today's Schedule" : "Schedule for")
+                : filterLabels[activeFilter as string]}
+            </h3>
+            <p className="text-lg font-bold text-foreground leading-tight">
+              {activeFilter === null ? formattedDate : currentMonthName}
+            </p>
+          </div>
+          <div className="bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10">
+            <span className="text-sm font-bold text-primary">
+              {events.length} {events.length === 1 ? 'Event' : 'Events'}
+            </span>
+          </div>
         </div>
+
         <button
           onClick={onAddEvent}
-          className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3.5 rounded-xl font-bold text-sm shadow-md hover:bg-primary/90 hover:shadow-lg active:scale-[0.98] transition-all group"
         >
-          <Plus className="h-4 w-4" />
-          Add Event
+          <Plus className="size-5" />
+          Schedule Event
         </button>
       </div>
 
-      {sortedEvents.length === 0 ? (
-        <div className="py-12 text-center">
-          <CalendarIcon className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
-          <p className="text-muted-foreground">No events for this day</p>
-          <button onClick={onAddEvent} className="mt-3 text-sm text-primary hover:underline">
-            Create your first event
-          </button>
+      {/* Progress Statistics */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="size-3.5 text-emerald-600" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Completion</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-slate-900">{stats.completionRate}%</span>
+            <span className="text-[10px] font-medium text-slate-400">rate</span>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {sortedEvents.map((event) => {
-            const StatusIcon = statusIcons[event.status]
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="size-3.5 text-blue-600" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Upcoming</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-slate-900">{stats.upcoming}</span>
+            <span className="text-[10px] font-medium text-slate-400">total</span>
+          </div>
+        </div>
+      </div>
 
-            return (
-              <div
-                key={event.id}
-                onClick={() => onEditEvent(event)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onEditEvent(event)
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                className={`
-                  min-h-[180px] w-full overflow-hidden rounded-xl border border-border p-5 text-left
-                  transition-colors hover:border-primary/50
-                  focus:outline-none focus:ring-2 focus:ring-ring
-                `}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`mt-0.5 ${statusColors[event.status]}`}>
-                    <StatusIcon className="h-5 w-5" />
+      {/* Event List Container */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <div className="size-1.5 rounded-full bg-primary" />
+          <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Events Registry</h4>
+        </div>
+
+        {events.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 p-6">
+            <div className="p-4 bg-white rounded-full shadow-sm border border-slate-100">
+              <CalendarIcon className="size-8 text-slate-300" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-bold text-slate-400">
+                {activeFilter === null 
+                  ? 'No events scheduled' 
+                  : `No ${activeFilter.replace('-', ' ')} events in ${currentMonthName}`}
+              </p>
+              <p className="text-[11px] text-slate-300 mt-1">
+                {activeFilter === null ? 'Select a date or click schedule' : 'Try changing your filters or month'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 pr-2">
+            {sortedEvents.map((event) => {
+              const StatusIcon = statusIcons[event.status]
+              const startDateTime = new Date(event.startDate)
+
+              return (
+                <div
+                  key={event.id}
+                  onClick={() => onEditEvent(event)}
+                  className="group flex flex-col gap-3 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm hover:border-primary/20 hover:shadow-md transition-all duration-200 cursor-pointer"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex flex-col items-center justify-center min-w-[50px] py-1 bg-slate-50 rounded-lg border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/10 transition-colors">
+                      <span className="text-sm font-bold text-slate-900 group-hover:text-primary">
+                        {format(startDateTime, 'h')}
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">
+                        {format(startDateTime, 'a')}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-black text-primary/40 uppercase tracking-tighter">
+                          {format(startDateTime, 'MMM d')}
+                        </span>
+                        <div className="h-2 w-[1px] bg-slate-100" />
+                        <RunningText
+                          text={event.title}
+                          className="text-sm font-bold text-slate-900 transition-colors group-hover:text-primary"
+                          minDurationSeconds={7}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${getCategoryStyles(event.category || 'other')}`}>
+                          {event.category || 'Event'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {formatTime12h(event.startDate)} - {formatTime12h(event.endDate)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className={`p-2 rounded-lg shrink-0 ${
+                      event.status === 'completed' ? 'text-emerald-600 bg-emerald-50 border border-emerald-100' :
+                      event.status === 'in-progress' ? 'text-amber-600 bg-amber-50 border border-amber-100' :
+                      'text-blue-600 bg-blue-50 border border-blue-100'
+                    }`}>
+                      <StatusIcon className="size-4" />
+                    </div>
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap">
-                      <h4
-                        className="w-full min-w-0 break-all font-medium text-foreground sm:flex-1 sm:break-words sm:[overflow-wrap:anywhere]"
-                        title={event.title}
-                      >
-                        {event.title}
-                      </h4>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${getCategoryColor(event.category)}`}
-                      >
-                        {event.category}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        {formatTime12h(event.startTime)} - {formatTime12h(event.endTime)}
-                      </span>
-                      {event.status === 'completed' && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Finished
-                        </span>
+                  {/* Attachments & Attendees Details */}
+                  {(event.attendees?.length > 0 || (event.attachments && event.attachments.length > 0)) && (
+                    <div className="mt-1 pt-3 border-t border-slate-50 flex flex-col gap-3">
+                      {/* Attachments Cards - Shown First */}
+                      {event.attachments && event.attachments.length > 0 && (
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {event.attachments.map((file, idx) => (
+                            <div 
+                              key={idx}
+                              className="flex items-center gap-2 p-2 bg-slate-50/50 rounded-xl border border-slate-100/50 group/file hover:bg-white hover:border-primary/10 transition-all"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openStoredFile(file.fileUrl);
+                              }}
+                            >
+                              <div className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100">
+                                <FileText className="size-3 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0 flex flex-col">
+                                <span className="text-[10px] font-bold text-slate-700 truncate leading-none mb-0.5">
+                                  {file.fileName}
+                                </span>
+                                <span className="text-[8px] text-slate-400 font-medium">
+                                  {(file.fileSize / 1024).toFixed(1)} KB
+                                </span>
+                              </div>
+                              <ArrowRight className="size-3 text-slate-300 opacity-0 group-hover/file:opacity-100 transition-all mr-1" />
+                            </div>
+                          ))}
+                        </div>
                       )}
-                      {event.status === 'in-progress' && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                          <PlayCircle className="h-3 w-3" />
-                          In Progress
-                        </span>
-                      )}
-                      {event.status === 'upcoming' && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                          <Clock className="h-3 w-3" />
-                          Upcoming
-                        </span>
-                      )}
-                    </div>
 
-                    {event.description && (
-                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-                        {event.description}
-                      </p>
-                    )}
-
-                    {event.attachments && event.attachments.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        {event.attachments.map((attachment, index) => (
-                          <div
-                            key={`${event.id}-attachment-${index}`}
-                            className="rounded-2xl border border-border/80 bg-background/80 p-3.5 shadow-sm"
+                      {/* Attendees List - Refactored to Stateful Collapsible Dropdown */}
+                      {event.attendees && event.attendees.length > 0 && (
+                        <div className="flex flex-col gap-1.5">
+                          <div 
+                            className="flex items-center justify-between px-1 cursor-pointer hover:opacity-80 transition-opacity group/toggle"
+                            onClick={(e) => toggleAttendees(event.id, e)}
                           >
-                            <div className="flex items-start gap-3">
-                              <div className="rounded-2xl bg-muted/60 p-3 shadow-sm">
-                                <FileText className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                              <div className="min-w-0 flex-1 overflow-hidden">
-                                <p
-                                  className="truncate text-sm font-semibold text-foreground"
-                                  title={attachment.fileName}
-                                >
-                                  {attachment.fileName}
-                                </p>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
-                                  {attachment.fileType}
-                                  {attachment.fileSize ? ` • ${formatFileSize(attachment.fileSize)}` : ''}
-                                </p>
-                                <div className="mt-3 flex flex-wrap items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      openStoredFile(attachment.fileUrl)
-                                    }}
-                                    className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
-                                  >
-                                    View
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      downloadStoredFile(attachment.fileUrl, attachment.fileName)
-                                    }}
-                                    className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
-                                  >
-                                    <Download className="h-3.5 w-3.5" />
-                                    Download
-                                  </button>
-                                </div>
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <Users className={`size-3 transition-colors ${expandedEvents[event.id] ? 'text-primary' : 'text-slate-400'}`} />
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover/toggle:text-slate-600 transition-colors">
+                                {expandedEvents[event.id] ? 'Hide Attendees' : 'View Attendees'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded-md">
+                                {event.attendees.length}
+                              </span>
+                              {expandedEvents[event.id] ? (
+                                <ChevronUp className="size-3 text-slate-400 group-hover/toggle:text-primary transition-colors" />
+                              ) : (
+                                <ChevronDown className="size-3 text-slate-400 group-hover/toggle:text-primary transition-colors" />
+                              )}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
 
-                    {event.attendees && event.attendees.length > 0 && (
-                      <div className="mt-3">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setExpandedAttendees(expandedAttendees === event.id ? null : event.id)
-                          }}
-                          className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                          <Users className="h-4 w-4" />
-                          <span>{event.attendees.length} attendee{event.attendees.length > 1 ? 's' : ''}</span>
-                          {expandedAttendees === event.id ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </button>
-
-                        {expandedAttendees === event.id && (
-                          <div className="mt-2 rounded-lg bg-muted/50 p-3">
-                            <ul className="space-y-1.5">
-                              {event.attendees.map((attendee, index) => (
-                                <li key={index} className="flex items-center gap-2 text-sm text-foreground">
-                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                                    {attendee.charAt(0).toUpperCase()}
-                                  </div>
-                                  {attendee}
-                                </li>
+                          {expandedEvents[event.id] && (
+                            <div className="flex flex-col gap-1 bg-slate-50/50 rounded-xl p-1.5 border border-slate-100/50 animate-in slide-in-from-top-1 duration-200">
+                              {event.attendees.map((attendee, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="flex items-center gap-2 px-2 py-1 hover:bg-white rounded-lg transition-colors group/attendee"
+                                >
+                                  <div className="size-1 rounded-full bg-slate-300 group-hover/attendee:bg-primary transition-colors" />
+                                  <span className="text-[10px] font-bold text-slate-600 group-hover/attendee:text-slate-900 transition-colors">
+                                    {attendee}
+                                  </span>
+                                </div>
                               ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -77,19 +77,56 @@ export function AuthenticatedApp({ initialView }: AuthenticatedAppProps) {
     router.replace('/')
   }
 
+  const handleUserUpdate = (updatedUser: User) => {
+    setUser(updatedUser)
+    if (typeof window !== 'undefined') {
+      const { isLoggedIn, ...userToStore } = updatedUser
+      localStorage.setItem('calendar_auth_user', JSON.stringify(userToStore))
+    }
+  }
+
   if (isLoading || !user?.isLoggedIn) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-full flex items-center justify-center bg-background">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <Dashboard
-      user={user}
-      onLogout={handleLogout}
-      activeView={initialView}
-    />
+    <>
+      <style jsx global>{`
+        :root {
+          --primary: ${user.themeColor || '#1972FA'};
+          --ring: ${user.themeColor || '#1972FA'};
+          --accent: color-mix(in srgb, ${user.themeColor || '#1972FA'}, white 20%);
+          --calendar-odd: ${user.themeColor || '#1972FA'};
+          --calendar-even: color-mix(in srgb, ${user.themeColor || '#1972FA'}, white 85%);
+          --calendar-odd-foreground: white;
+          --calendar-even-foreground: color-mix(in srgb, ${user.themeColor || '#1972FA'}, black 60%);
+        }
+        
+        /* Force red hover on all primary action buttons */
+        .bg-primary:hover {
+          background-color: #EF4444 !important;
+          color: white !important;
+        }
+
+        /* Hover effect for navigation links and other interactive primary elements */
+        .text-primary:hover {
+          color: #EF4444 !important;
+        }
+        
+        .hover\:text-primary:hover {
+          color: #EF4444 !important;
+        }
+      `}</style>
+      <Dashboard
+        user={user}
+        onLogout={handleLogout}
+        activeView={initialView}
+        onUserUpdate={handleUserUpdate}
+      />
+    </>
   )
 }

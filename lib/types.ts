@@ -9,9 +9,8 @@ export interface CalendarEvent {
   id: number
   title: string
   description: string
-  date: string // YYYY-MM-DD format
-  startTime: string // HH:MM format (24h)
-  endTime: string // HH:MM format (24h)
+  startDate: string // ISO string
+  endDate: string // ISO string
   status: 'upcoming' | 'in-progress' | 'completed'
   createdAt: string
   updatedAt?: string
@@ -25,9 +24,25 @@ export interface User {
   username: string
   slug: string
   fullname: string
+  themeColor?: string
   createdAt?: string
   updatedAt?: string
   isLoggedIn: boolean
+}
+
+export interface Notification {
+  id: number
+  userId: number
+  message: string
+  isRead: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface NotificationsFeed {
+  notifications: Notification[]
+  unreadCount: number
+  assignedWorkCount: number
 }
 
 export interface DayEvents {
@@ -54,9 +69,8 @@ export interface AuthPayload {
 export interface EventInput {
   title: string
   description: string
-  date: string
-  startTime: string
-  endTime: string
+  startDate: string
+  endDate: string
   category: CalendarEvent['category']
   attendees: string[]
   attachments?: EventAttachment[]
@@ -69,7 +83,16 @@ export interface DocumentFile {
   size: number
   url: string
   uploadedAt: string
+  ownerId?: number
+  workflowOwnerId?: number
   date?: string
+  description?: string
+  status: string
+  assignedTo?: {
+    id: number
+    username: string
+    fullname: string
+  } | null
   folderId?: string
   createdAt?: string
   updatedAt?: string
@@ -95,6 +118,9 @@ export interface DocumentInput {
   uploadedFile?: string
   fileUrl?: string
   date?: string
+  description?: string
+  status?: string
+  assignedToId?: number | null
 }
 
 export interface ReportInput {

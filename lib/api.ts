@@ -9,6 +9,8 @@ import type {
   Report,
   ReportInput,
   User,
+  Notification,
+  NotificationsFeed,
 } from './types'
 import { clearStoredAuth, getStoredToken } from './auth-storage'
 
@@ -127,9 +129,29 @@ export async function changeOwnPassword(input: {
   })
 }
 
+export async function updateThemeColor(themeColor: string): Promise<User> {
+  const user = await request<Omit<User, 'isLoggedIn'>>('/auth/profile/theme-color', {
+    method: 'POST',
+    body: JSON.stringify({ themeColor }),
+  })
+  return { ...user, isLoggedIn: true }
+}
+
+export async function updateFullname(fullname: string): Promise<User> {
+  const user = await request<Omit<User, 'isLoggedIn'>>('/auth/profile/fullname', {
+    method: 'POST',
+    body: JSON.stringify({ fullname }),
+  })
+  return { ...user, isLoggedIn: true }
+}
+
 export async function getCurrentUser(): Promise<User> {
   const user = await request<Omit<User, 'isLoggedIn'>>('/auth/me')
   return { ...user, isLoggedIn: true }
+}
+
+export async function getUsers(): Promise<User[]> {
+  return request<User[]>('/auth/users')
 }
 
 export async function getEvents(): Promise<CalendarEvent[]> {
@@ -156,8 +178,9 @@ export async function deleteEvent(id: number): Promise<void> {
   })
 }
 
-export async function getDocuments(): Promise<DocumentsResponse> {
-  return request<DocumentsResponse>('/documents')
+export async function getDocuments(search?: string): Promise<DocumentsResponse> {
+  const url = search ? `/documents?search=${encodeURIComponent(search)}` : '/documents'
+  return request<DocumentsResponse>(url)
 }
 
 export async function createDocument(input: DocumentInput): Promise<DocumentFile> {
@@ -181,7 +204,16 @@ export async function updateDocumentFolder(folderName: string, newFolderName: st
   })
 }
 
-export async function updateDocument(id: number, input: { folderName?: string }): Promise<DocumentFile> {
+export async function updateDocument(id: number, input: { 
+  folderName?: string;
+  description?: string;
+  status?: string;
+  assignedToId?: number | null;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  uploadedFile?: string;
+}): Promise<DocumentFile> {
   return request<DocumentFile>(`/documents/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
@@ -214,6 +246,34 @@ export async function createReport(input: ReportInput): Promise<Report> {
 
 export async function deleteReport(id: number): Promise<void> {
   await request<{ success: boolean }>(`/reports/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function getNotifications(): Promise<NotificationsFeed> {
+  return request<NotificationsFeed>('/notifications')
+}
+
+export async function markNotificationAsRead(id: number): Promise<Notification> {
+  return request<Notification>(`/notifications/${id}/read`, {
+    method: 'PATCH',
+  })
+}
+
+export async function markAllNotificationsAsRead(): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>('/notifications/read-all', {
+    method: 'POST',
+  })
+}
+
+export async function deleteNotification(id: number): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>(`/notifications/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function deleteAllNotifications(): Promise<{ success: boolean; deletedCount: number }> {
+  return request<{ success: boolean; deletedCount: number }>('/notifications', {
     method: 'DELETE',
   })
 }

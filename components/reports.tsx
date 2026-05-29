@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import type { Report, CalendarEvent, User } from '@/lib/types'
 import { downloadStoredFile, openStoredFile } from '@/lib/file-utils'
-import { getLocalDateString, parseLocalDate } from '@/lib/event-utils'
+import { getLocalDateString, parseLocalDate, formatTime12h } from '@/lib/event-utils'
 import {
   deleteReport,
   getApiErrorMessage,
@@ -191,20 +191,23 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
     const entries = new Map<string, FileEntry>()
 
     for (const event of events) {
-      if (event.date !== selectedDate || !event.attachments?.length) {
+      const eventDate = event.startDate.slice(0, 10)
+      if (eventDate !== selectedDate || !event.attachments?.length) {
         continue
       }
 
       event.attachments.forEach((attachment, index) => {
         const matchingReport = reports.find((report) => report.fileUrl === attachment.fileUrl)
-        const eventDateTime = new Date(`${event.date}T${event.startTime}:00`)
+        const eventDateTime = new Date(event.startDate)
+        const startTimeLabel = formatTime12h(event.startDate)
+        
         entries.set(`event:${event.id}:${index}`, {
           id: `event:${event.id}:${index}`,
           fileUrl: attachment.fileUrl,
           fileName: attachment.fileName || `${event.title} attachment`,
           fileType: attachment.fileType || 'application/octet-stream',
           fileSize: attachment.fileSize,
-          dateLabel: `${format(parseLocalDate(event.date), 'MMM d, yyyy')} at ${event.startTime}`,
+          dateLabel: `${format(parseLocalDate(eventDate), 'MMM d, yyyy')} at ${startTimeLabel}`,
           sourceLabel: `Event: ${event.title}`,
           reportId: matchingReport?.id,
           sortValue: eventDateTime.getTime(),
@@ -227,8 +230,14 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
         continue
       }
 
-      // Try to find any event on this date to use its title
-      const sameDateEvent = events.find((e) => e.date === selectedDate)
+      // ONLY include reports that are explicitly linked to an event's attachments
+      const matchingEvent = events.find((e) =>
+        e.attachments?.some((a) => a.fileUrl === report.fileUrl),
+      )
+
+      if (!matchingEvent) {
+        continue
+      }
 
       entries.set(`report:${report.id}`, {
         id: `report:${report.id}`,
@@ -240,7 +249,7 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
             ? report.fileUrl.slice(5, report.fileUrl.indexOf(';')) || 'application/octet-stream'
             : 'application/octet-stream'),
         dateLabel: format(new Date(report.createdAt), 'MMM d, yyyy p'),
-        sourceLabel: sameDateEvent ? `Event: ${sameDateEvent.title}` : 'Uploaded Report',
+        sourceLabel: `Event: ${matchingEvent.title}`,
         reportId: report.id,
         sortValue: new Date(report.createdAt).getTime(),
       })
@@ -252,10 +261,14 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
   const allUploadedFiles = useMemo(() => {
     return allReports
       .map((report) => {
-        // Find an event that has this file in its attachments OR matches by date
-        const matchingEvent =
-          events.find((e) => e.attachments?.some((a) => a.fileUrl === report.fileUrl)) ||
-          (report.date ? events.find((e) => e.date === report.date) : null)
+        // Find an event that has this file in its attachments
+        const matchingEvent = events.find((e) =>
+          e.attachments?.some((a) => a.fileUrl === report.fileUrl),
+        )
+
+        if (!matchingEvent) {
+          return null
+        }
 
         return {
           id: `report-all:${report.id}`,
@@ -265,11 +278,12 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
           dateLabel: report.date
             ? format(parseLocalDate(report.date), 'MMM d, yyyy')
             : format(new Date(report.createdAt), 'MMM d, yyyy p'),
-          sourceLabel: matchingEvent ? `Event: ${matchingEvent.title}` : 'Uploaded Report',
+          sourceLabel: `Event: ${matchingEvent.title}`,
           reportId: report.id,
           sortValue: new Date(report.createdAt).getTime(),
         }
       })
+      .filter((file): file is NonNullable<typeof file> => file !== null)
       .sort((left, right) => right.sortValue - left.sortValue)
   }, [allReports, events])
 
@@ -348,9 +362,9 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
             {filesForSelectedDate.map((file) => (
               <div
                 key={file.id}
-                className="flex items-center gap-4 rounded-lg border border-border bg-background p-4"
+                className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 sm:flex-row sm:items-center"
               >
-                <div className="rounded-lg bg-muted p-2">
+                <div className="shrink-0 rounded-lg bg-muted p-2">
                   {getFileIcon(file.fileUrl)}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -363,7 +377,7 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
                     {file.fileSize ? <span>{formatFileSize(file.fileSize)}</span> : null}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto sm:shrink-0 sm:flex-nowrap">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -464,7 +478,7 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
                   }
                 }}
                 className={[
-                  "flex items-center gap-4 rounded-lg border border-border bg-background p-4",
+                  "flex flex-col gap-3 rounded-lg border border-border bg-background p-4 sm:flex-row sm:items-center",
                   isSelectionMode && file.reportId ? "cursor-pointer" : "",
                   file.reportId && selectedReportIds.includes(file.reportId)
                     ? "border-primary bg-primary/5"
@@ -479,7 +493,7 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
                     className="shrink-0"
                   />
                 ) : null}
-                <div className="rounded-lg bg-muted p-2">
+                <div className="shrink-0 rounded-lg bg-muted p-2">
                   {getFileIcon(file.fileUrl)}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -491,7 +505,7 @@ export function Reports({ user, events, onEventsChanged }: ReportsProps) {
                     <span>{file.dateLabel}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto sm:shrink-0 sm:flex-nowrap">
                   <Button
                     variant="ghost"
                     size="icon"

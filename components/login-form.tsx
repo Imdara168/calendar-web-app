@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Calendar } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 type AuthMode = "login" | "signup" | "forgot-password" | "change-password";
 
@@ -33,23 +33,23 @@ const modeCopy: Record<
 > = {
   login: {
     title: "Sign In",
-    submitLabel: "Sign In",
-    helperText: "Please sign in before continuing.",
+    submitLabel: "Access System",
+    helperText: "Enter your credentials to manage registrations",
   },
   signup: {
     title: "Create Account",
-    submitLabel: "Sign Up",
-    helperText: "Create a new account to start using Calendar App.",
+    submitLabel: "Initialize Account",
+    helperText: "Set up your administrative access",
   },
   "forgot-password": {
-    title: "Forgot Password",
-    submitLabel: "Continue",
-    helperText: "Enter your username to continue to password reset.",
+    title: "Account Recovery",
+    submitLabel: "Verify Identity",
+    helperText: "Enter your username to begin recovery",
   },
   "change-password": {
-    title: "Change Password",
-    submitLabel: "Change Password",
-    helperText: "Set a new password for your account.",
+    title: "Update Password",
+    submitLabel: "Save New Password",
+    helperText: "Establish a secure authentication phrase",
   },
 };
 
@@ -144,26 +144,38 @@ export function LoginForm({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-card border border-border rounded-xl shadow-lg p-8">
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="p-3 bg-primary rounded-lg">
-              <Calendar className="w-6 h-6 text-primary-foreground" />
+    <div className="relative flex min-h-full items-center justify-center bg-[#F5F7FB] p-4">
+      <div className="pointer-events-none absolute top-[-10%] left-[-5%] h-[40%] w-[40%] rounded-full bg-primary/5 blur-[120px]" />
+      <div className="pointer-events-none absolute right-[-5%] bottom-[-10%] h-[40%] w-[40%] rounded-full bg-accent/5 blur-[120px]" />
+
+      <div className="relative z-10 w-full max-w-[380px] sm:max-w-[400px]">
+        <div className="rounded-[28px] border border-white/40 bg-white/88 p-5 shadow-premium sm:rounded-[30px] sm:p-6 md:p-7">
+          <div className="mb-6 flex flex-col items-center justify-center gap-3 text-center sm:mb-7 sm:gap-4">
+            <div className="flex h-20 items-center justify-center">
+              <img src="/logo.png" alt="BRD Logo" className="h-full w-auto object-contain" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Calendar App</h1>
+            <div className="flex flex-col items-center">
+              <h1 className="text-[1.45rem] font-black tracking-tight text-foreground sm:text-[1.65rem]">
+                នាយកដ្ឋានចុះបញ្ជី
+              </h1>
+              <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground sm:text-[10px] sm:tracking-[0.24em]">
+                BUSINESS REGISTRATION
+              </p>
+            </div>
           </div>
 
-          <div className="mb-6 text-center">
-            <h2 className="text-xl font-semibold text-foreground">{copy.title}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{copy.helperText}</p>
+          <div className="mb-6 text-center sm:mb-7">
+            <h2 className="text-lg font-bold text-foreground sm:text-xl">{copy.title}</h2>
+            <p className="mt-1 text-xs font-medium text-muted-foreground sm:text-sm">
+              {copy.helperText}
+            </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
               <label
                 htmlFor="username"
-                className="block text-sm font-medium text-foreground mb-2"
+                className="ml-1 block text-xs font-black uppercase tracking-widest text-muted-foreground"
               >
                 Username
               </label>
@@ -172,18 +184,18 @@ export function LoginForm({
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="Enter your username"
+                className="w-full rounded-xl border border-border/50 bg-secondary/30 px-4 py-3 font-semibold text-foreground transition-all placeholder:text-muted-foreground/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                placeholder="Enter username"
               />
             </div>
 
             {(mode === "login" || mode === "signup" || mode === "change-password") && (
-              <div>
+              <div className="space-y-1.5">
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-foreground mb-2"
+                  className="ml-1 block text-xs font-black uppercase tracking-widest text-muted-foreground"
                 >
-                  {mode === "change-password" ? "New Password" : "Password"}
+                  {mode === "change-password" ? "Secure Secret" : "Password"}
                 </label>
                 <div className="relative">
                   <input
@@ -191,22 +203,22 @@ export function LoginForm({
                     id="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 pr-12 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded-xl border border-border/50 bg-secondary/30 px-4 py-3 font-semibold text-foreground transition-all placeholder:text-muted-foreground/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
                     placeholder={
                       mode === "change-password"
-                        ? "Enter your new password"
-                        : "Enter your password"
+                        ? "Enter new password"
+                        : "Enter password"
                     }
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute top-1/2 right-4 -translate-y-1/2 p-1 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
+                      <EyeOff className="h-5 w-5" />
                     ) : (
-                      <Eye className="w-5 h-5" />
+                      <Eye className="h-5 w-5" />
                     )}
                   </button>
                 </div>
@@ -214,12 +226,12 @@ export function LoginForm({
             )}
 
             {(mode === "signup" || mode === "change-password") && (
-              <div>
+              <div className="space-y-1.5">
                 <label
                   htmlFor="confirm-password"
-                  className="block text-sm font-medium text-foreground mb-2"
+                  className="ml-1 block text-xs font-black uppercase tracking-widest text-muted-foreground"
                 >
-                  Confirm Password
+                  Confirm Entry
                 </label>
                 <div className="relative">
                   <input
@@ -227,57 +239,69 @@ export function LoginForm({
                     id="confirm-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-3 pr-12 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="Confirm your password"
+                    className="w-full rounded-xl border border-border/50 bg-secondary/30 px-4 py-3 font-semibold text-foreground transition-all placeholder:text-muted-foreground/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="Repeat entry"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute top-1/2 right-4 -translate-y-1/2 p-1 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="w-5 h-5" />
+                      <EyeOff className="h-5 w-5" />
                     ) : (
-                      <Eye className="w-5 h-5" />
+                      <Eye className="h-5 w-5" />
                     )}
                   </button>
                 </div>
               </div>
             )}
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            {successMessage && <p className="text-sm text-green-600">{successMessage}</p>}
+            {error && (
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs font-bold text-destructive">
+                {error}
+              </div>
+            )}
+            {successMessage && (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs font-bold text-emerald-600">
+                {successMessage}
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity"
+              className="w-full rounded-2xl bg-gradient-premium py-3.5 text-sm font-black uppercase tracking-[0.16em] text-white shadow-premium transition-all hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:opacity-50"
             >
-              {isSubmitting ? "Please wait..." : copy.submitLabel}
+              {isSubmitting ? "Processing..." : copy.submitLabel}
             </button>
           </form>
 
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm text-muted-foreground">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground sm:mt-7 sm:gap-5 sm:text-[10px] sm:tracking-[0.18em]">
             {mode !== "login" && (
-              <Link href="/" className="hover:text-foreground transition-colors">
+              <Link href="/" className="transition-colors hover:text-primary">
                 Sign In
               </Link>
             )}
             {mode !== "signup" && (
-              <Link href="/signup" className="hover:text-foreground transition-colors">
+              <Link href="/signup" className="transition-colors hover:text-primary">
                 Sign Up
               </Link>
             )}
             {mode !== "forgot-password" && (
               <Link
                 href="/forget_password"
-                className="hover:text-foreground transition-colors"
+                className="transition-colors hover:text-primary"
               >
-                Forgot Password
+                Recover
               </Link>
             )}
           </div>
         </div>
+
+        <p className="mt-4 text-center text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50 sm:mt-5 sm:text-[9px] sm:tracking-[0.28em]">
+          នាយកដ្ឋានចុះបញ្ជី © 2026
+        </p>
       </div>
     </div>
   );

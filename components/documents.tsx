@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Check,
+  ChevronsUpDown,
   ClipboardPaste,
   Copy,
   Download,
@@ -13,9 +15,15 @@ import {
   LayoutGrid,
   List,
   Pencil,
+  Plus,
+  RefreshCw,
   Scissors,
+  Search,
   Trash2,
   Upload,
+  User as UserIcon,
+  Info,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -36,7 +44,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -53,10 +71,15 @@ import {
   deleteDocumentFolder,
   getApiErrorMessage,
   getDocuments,
+  getUsers,
   updateDocument,
   updateDocumentFolder,
 } from "@/lib/api";
-import type { DocumentFile, DocumentFolder } from "@/lib/types";
+import type {
+  DocumentFile,
+  DocumentFolder,
+  User,
+} from "@/lib/types";
 import { downloadStoredFile, openStoredFile } from "@/lib/file-utils";
 
 type ClipboardState = {
@@ -65,14 +88,26 @@ type ClipboardState = {
   sourceFolderId?: string;
 } | null;
 
+interface StagedFile {
+  id: string;
+  file: globalThis.File;
+  previewUrl: string;
+  description: string;
+  assignedToId?: number | null;
+}
+
 interface FileRowProps {
   file: DocumentFile;
+  canManage: boolean;
+  canReplace: boolean;
   showSelection: boolean;
   isSelected: boolean;
   onToggleSelection: (id: number) => void;
   onDelete: (file: DocumentFile) => void;
   onView: (url: string) => void;
   onDownload: (url: string, name: string) => void;
+  onPreview: (file: DocumentFile) => void;
+  onReplace: (fileId: number) => void;
   folderTitle?: string;
 }
 
@@ -97,12 +132,16 @@ function readFileAsDataUrl(file: globalThis.File) {
 
 function FileRow({
   file,
+  canManage,
+  canReplace,
   showSelection,
   isSelected,
   onToggleSelection,
   onDelete,
   onView,
   onDownload,
+  onPreview,
+  onReplace,
   folderTitle,
 }: FileRowProps) {
   const formatSize = (bytes: number) => {
@@ -122,20 +161,22 @@ function FileRow({
   return (
     <div
       onClick={() => {
-        if (showSelection) {
+        if (showSelection && canManage) {
           onToggleSelection(file.id);
+        } else if (!showSelection) {
+          onPreview(file);
         }
       }}
       className={[
         "group flex flex-col gap-3 overflow-hidden rounded-lg border p-4 transition-all sm:flex-row sm:items-center sm:justify-between sm:gap-4",
-        showSelection ? "cursor-pointer" : "",
+        showSelection && canManage ? "cursor-pointer" : "",
         isSelected
           ? "border-primary bg-primary/5"
           : "border-border bg-background hover:border-primary/50",
       ].join(" ")}
     >
       <div className="flex min-w-0 w-full flex-1 items-start gap-3 sm:w-auto sm:items-center sm:gap-4">
-        {showSelection ? (
+        {showSelection && canManage ? (
           <Checkbox
             checked={isSelected}
             onClick={(event) => event.stopPropagation()}
@@ -147,12 +188,21 @@ function FileRow({
         <div className="shrink-0 rounded-lg bg-muted p-2">{icon}</div>
 
         <div className="min-w-0 flex-1">
-          <p
-            className="max-w-[140px] truncate font-medium text-foreground min-[400px]:max-w-[200px] sm:max-w-none"
-            title={file.name}
-          >
-            {file.name}
-          </p>
+          <div className="flex items-center gap-2">
+            <p
+              className="max-w-[140px] truncate font-medium text-foreground min-[400px]:max-w-[200px] sm:max-w-none"
+              title={file.name}
+            >
+              {file.name}
+            </p>
+            <div className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+              file.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-500' :
+              file.status === 'In Progress' ? 'bg-amber-500/10 text-amber-500' :
+              'bg-blue-500/10 text-blue-500'
+            }`}>
+              {file.status || 'Pending'}
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:gap-3">
             {folderTitle && (
               <span className="flex min-w-0 max-w-full items-center gap-1">
@@ -168,10 +218,34 @@ function FileRow({
             <span>{format(new Date(file.uploadedAt), "MMM d, yyyy p")}</span>
             <span>{formatSize(file.size)}</span>
           </div>
+          
+          {(file.description || file.assignedTo) && (
+            <div className="mt-2 flex flex-wrap gap-3 border-t pt-2">
+              {file.assignedTo && (
+                <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-primary">
+                  <UserIcon className="w-3 h-3" />
+                  <span
+                    className="truncate"
+                    title={`Assigned to ${file.assignedTo.fullname || file.assignedTo.username}`}
+                  >
+                    Assigned to: {file.assignedTo.fullname || file.assignedTo.username}
+                  </span>
+                </div>
+              )}
+              {file.description && (
+                <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <Info className="w-3 h-3" />
+                  <span className="min-w-0 break-all italic line-clamp-1" title={file.description}>
+                    {file.description}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto sm:shrink-0 sm:flex-nowrap">
+      <div className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto sm:shrink-0 sm:self-start sm:flex-nowrap">
         <Button
           variant="ghost"
           size="icon"
@@ -196,25 +270,184 @@ function FileRow({
         >
           <Download className="w-4 h-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(event) => {
-            event.stopPropagation();
-            onDelete(file);
-          }}
-          className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          title="Delete"
-          disabled={showSelection}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        {canReplace ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(event) => {
+              event.stopPropagation();
+              onReplace(file.id);
+            }}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            title="Replace"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        ) : null}
+        {canManage ? (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(file);
+              }}
+              className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              title="Delete"
+              disabled={showSelection}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </>
+        ) : null}
       </div>
     </div>
   );
 }
 
-export function Documents() {
+interface AssigneePickerProps {
+  users: User[];
+  value?: number | null;
+  onChange: (value: number | null) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}
+
+function AssigneePicker({
+  users,
+  value,
+  onChange,
+  disabled = false,
+  placeholder = "Search users",
+}: AssigneePickerProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const availableUsers = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return users;
+    }
+
+    return users.filter((candidate) => {
+      const haystack = `${candidate.fullname} ${candidate.username}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [query, users]);
+
+  const handleSelect = (nextValue: number | null) => {
+    onChange(nextValue);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const selectedUser = useMemo(
+    () => users.find((candidate) => candidate.id === value) ?? null,
+    [users, value],
+  );
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) {
+          setQuery("");
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-9 w-full justify-between overflow-hidden text-left text-sm font-normal"
+          disabled={disabled}
+        >
+          <span className="truncate">
+            {selectedUser
+              ? selectedUser.fullname || selectedUser.username
+              : placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-3" align="start">
+        <div className="space-y-3">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search user by name..."
+            className="h-9"
+          />
+          <ScrollArea className="max-h-64">
+            <div className="space-y-1 pr-2">
+              <button
+                type="button"
+                onClick={() => handleSelect(null)}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <Check
+                  className={[
+                    "h-4 w-4 shrink-0",
+                    value == null ? "opacity-100" : "opacity-0",
+                  ].join(" ")}
+                />
+                <span className="truncate">Unassigned</span>
+              </button>
+              {availableUsers.length === 0 ? (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  No matching users found.
+                </div>
+              ) : (
+                availableUsers.map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    onClick={() => handleSelect(candidate.id)}
+                    className="flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Check
+                      className={[
+                        "mt-0.5 h-4 w-4 shrink-0",
+                        value === candidate.id ? "opacity-100" : "opacity-0",
+                      ].join(" ")}
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate">
+                        {candidate.fullname || candidate.username}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        @{candidate.username}
+                      </p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+interface DocumentsProps {
+  user: User;
+}
+
+function normalizeDocumentStatus(status?: string | null) {
+  if (status === "Completed" || status === "In Progress") {
+    return status;
+  }
+
+  return "Pending";
+}
+
+export function Documents({ user }: DocumentsProps) {
   const [folders, setFolders] = useState<DocumentFolder[]>([]);
   const [files, setFiles] = useState<DocumentFile[]>([]);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
@@ -240,27 +473,176 @@ export function Documents() {
   const [isDeletingFile, setIsDeletingFile] = useState(false);
   const [isOrganizing, setIsOrganizing] = useState(false);
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [folderViewMode, setFolderViewMode] = useState<"card" | "flat">("flat");
   const [viewingFolder, setViewingFolder] = useState<DocumentFolder | null>(
     null,
   );
   const [clipboard, setClipboard] = useState<ClipboardState>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
+  const [isStagedModalOpen, setIsStagedModalOpen] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [previewFile, setPreviewFile] = useState<DocumentFile | null>(null);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState("");
+  const [editedAssignmentId, setEditedAssignmentId] = useState<number | null>(null);
+  const [editedStatus, setEditedStatus] = useState("Pending");
+  const [hasUnsavedMetadataDraft, setHasUnsavedMetadataDraft] = useState(false);
+  const [replacingFileId, setReplacingFileId] = useState<number | null>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadDocuments = useCallback(async () => {
+  const loadDocuments = useCallback(async (query?: string) => {
     try {
-      const data = await getDocuments();
+      if (query !== undefined) setIsSearching(true);
+      const data = await getDocuments(query);
       setFolders(data.folders);
       setFiles(data.files);
     } catch (loadError) {
       setError(getApiErrorMessage(loadError));
     } finally {
       setIsLoading(false);
+      setIsSearching(false);
     }
   }, []);
 
+  const handleSaveMetadata = useCallback(async () => {
+    if (!previewFile) return;
+    
+    setError("");
+    const payload = {
+      description: editedDescription,
+      assignedToId: editedAssignmentId,
+      status: normalizeDocumentStatus(editedStatus),
+    };
+    console.log("[Documents] Saving metadata payload", {
+      fileId: previewFile.id,
+      currentAssignedToId: previewFile.assignedTo?.id ?? null,
+      currentStatus: previewFile.status,
+      draftAssignedToId: editedAssignmentId,
+      draftStatus: editedStatus,
+      draftDescription: editedDescription,
+      payload,
+    });
+
+    try {
+      const updated = await updateDocument(previewFile.id, payload);
+      console.log("[Documents] Save metadata response", {
+        fileId: updated.id,
+        savedAssignedToId: updated.assignedTo?.id ?? null,
+        savedStatus: updated.status,
+        savedDescription: updated.description ?? "",
+        ownerId: updated.ownerId ?? null,
+      });
+
+      setFiles(prev => prev.map(f => f.id === previewFile.id ? updated : f));
+      setEditedAssignmentId(updated.assignedTo?.id ?? null);
+      setEditedStatus(normalizeDocumentStatus(updated.status));
+      setEditedDescription(updated.description || "");
+      setHasUnsavedMetadataDraft(false);
+      setIsEditingDescription(false);
+      setPreviewFile(null);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    }
+  }, [editedAssignmentId, editedDescription, editedStatus, previewFile]);
+
+  const handleDraftAssignmentChange = useCallback((assignedToId: number | null) => {
+    console.log("[Documents] Draft assignee changed", {
+      fileId: previewFile?.id ?? null,
+      currentAssignedToId: previewFile?.assignedTo?.id ?? null,
+      nextAssignedToId: assignedToId,
+    });
+    setEditedAssignmentId(assignedToId);
+    setHasUnsavedMetadataDraft(true);
+  }, [previewFile]);
+
+  const handleDraftStatusChange = useCallback((status: string) => {
+    console.log("[Documents] Draft status changed", {
+      fileId: previewFile?.id ?? null,
+      currentStatus: normalizeDocumentStatus(previewFile?.status),
+      nextStatus: normalizeDocumentStatus(status),
+    });
+    setEditedStatus(normalizeDocumentStatus(status));
+    setHasUnsavedMetadataDraft(true);
+  }, [previewFile]);
+
+  const resetMetadataDraft = useCallback(() => {
+    setEditedAssignmentId(previewFile?.assignedTo?.id ?? null);
+    setEditedStatus(normalizeDocumentStatus(previewFile?.status));
+    setEditedDescription(previewFile?.description || "");
+    setHasUnsavedMetadataDraft(false);
+    setIsEditingDescription(false);
+    setPreviewFile(null);
+  }, [previewFile]);
+
+  const startEditingDescription = () => {
+    if (!previewFile) return;
+    setEditedDescription(previewFile.description || "");
+    setIsEditingDescription(true);
+  };
+
+  const loadUsers = useCallback(async () => {
+    try {
+      const data = await getUsers();
+      setUsers(data);
+    } catch (loadError) {
+      console.error("Failed to load users:", loadError);
+    }
+  }, []);
+
+  const handleTriggerReplace = (fileId: number) => {
+    setReplacingFileId(fileId);
+    if (replaceFileInputRef.current) {
+      replaceFileInputRef.current.click();
+    }
+  };
+
+  const handleFileReplacement = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || replacingFileId === null) return;
+
+    setError("");
+    setIsUploading(true);
+
+    try {
+      const uploadedFile = await readFileAsDataUrl(file);
+      const updated = await updateDocument(replacingFileId, {
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        uploadedFile,
+      });
+
+      setFiles((prev) => prev.map((f) => (f.id === replacingFileId ? updated : f)));
+      if (previewFile?.id === replacingFileId) {
+        setPreviewFile(updated);
+      }
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setIsUploading(false);
+      setReplacingFileId(null);
+      if (e.target) e.target.value = "";
+    }
+  };
+
   useEffect(() => {
     void loadDocuments();
-  }, [loadDocuments]);
+    void loadUsers();
+  }, [loadDocuments, loadUsers]);
+
+  useEffect(() => {
+    setIsEditingDescription(false);
+    setEditedDescription(previewFile?.description || "");
+    setEditedAssignmentId(previewFile?.assignedTo?.id ?? null);
+    setEditedStatus(normalizeDocumentStatus(previewFile?.status));
+    setHasUnsavedMetadataDraft(false);
+  }, [previewFile]);
+
+  const handleSearch = useCallback(() => {
+    void loadDocuments(searchQuery);
+  }, [loadDocuments, searchQuery]);
 
   const selectedFileObjects = useMemo(
     () => files.filter((file) => selectedFiles.includes(file.id)),
@@ -370,31 +752,70 @@ export function Documents() {
 
       if (!fileList || fileList.length === 0) return;
 
-      setError("");
-      setIsUploading(true);
+      const newStagedFiles: StagedFile[] = [];
 
-      try {
-        for (const file of Array.from(fileList)) {
-          const uploadedFile = await readFileAsDataUrl(file);
-          await createDocument({
-            fileName: file.name,
-            fileType: file.type,
-            fileSize: file.size,
-            uploadedFile,
-            folderName: viewingFolder?.id,
-          });
-        }
-
-        await loadDocuments();
-      } catch (uploadError) {
-        setError(getApiErrorMessage(uploadError));
-      } finally {
-        input.value = "";
-        setIsUploading(false);
+      for (const file of Array.from(fileList)) {
+        const previewUrl = file.type.startsWith("image/")
+          ? await readFileAsDataUrl(file)
+          : "";
+        
+        newStagedFiles.push({
+          id: Math.random().toString(36).substring(7),
+          file,
+          previewUrl,
+          description: "",
+        });
       }
+
+      setStagedFiles((prev) => [...prev, ...newStagedFiles]);
+      setIsStagedModalOpen(true);
+      input.value = "";
     },
-    [loadDocuments, viewingFolder],
+    [],
   );
+
+  const handleUpdateStagedFile = (id: string, updates: Partial<StagedFile>) => {
+    setStagedFiles((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, ...updates } : f)),
+    );
+  };
+
+  const handleRemoveStagedFile = (id: string) => {
+    setStagedFiles((prev) => prev.filter((f) => f.id !== id));
+    if (stagedFiles.length === 1) {
+      setIsStagedModalOpen(false);
+    }
+  };
+
+  const handleConfirmUpload = useCallback(async () => {
+    if (stagedFiles.length === 0) return;
+
+    setError("");
+    setIsUploading(true);
+
+    try {
+      for (const staged of stagedFiles) {
+        const uploadedFile = await readFileAsDataUrl(staged.file);
+        await createDocument({
+          fileName: staged.file.name,
+          fileType: staged.file.type,
+          fileSize: staged.file.size,
+          uploadedFile,
+          folderName: viewingFolder?.id,
+          description: staged.description,
+          assignedToId: staged.assignedToId,
+        });
+      }
+
+      setStagedFiles([]);
+      setIsStagedModalOpen(false);
+      await loadDocuments();
+    } catch (uploadError) {
+      setError(getApiErrorMessage(uploadError));
+    } finally {
+      setIsUploading(false);
+    }
+  }, [loadDocuments, stagedFiles, viewingFolder]);
 
   const toggleFileSelection = (fileId: number) => {
     setSelectedFiles((prev) =>
@@ -637,9 +1058,31 @@ export function Documents() {
   const deleteFilesLabel =
     selectedFileObjects.length > 1 ? "Delete All" : "Delete";
   const isBulkDelete = filesToDelete.length > 1;
+  const canEditDocumentFile = useCallback(
+    (file: Pick<DocumentFile, "assignedTo" | "workflowOwnerId" | "ownerId"> | null) => {
+      if (!file) {
+        return false;
+      }
+
+      const effectiveWorkflowOwnerId =
+        file.workflowOwnerId ?? file.assignedTo?.id ?? file.ownerId ?? null;
+
+      return effectiveWorkflowOwnerId === user.id || file.assignedTo?.id === user.id;
+    },
+    [user.id],
+  );
+  const canManagePreview =
+    previewFile != null && previewFile.ownerId === user.id;
+  const canEditSharedPreview = canEditDocumentFile(previewFile);
 
   return (
     <div className="min-w-0 space-y-6">
+      <input
+        type="file"
+        ref={replaceFileInputRef}
+        onChange={handleFileReplacement}
+        className="hidden"
+      />
       <div className="flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="min-w-0">
           <h2 className="text-2xl font-bold text-foreground">Documents</h2>
@@ -670,6 +1113,26 @@ export function Documents() {
             </Button>
           </div>
         </div>
+      </div>
+
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Searching files or folders"
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          />
+        </div>
+        <Button 
+          onClick={handleSearch} 
+          disabled={isSearching}
+          className="shrink-0"
+        >
+          {isSearching ? "Searching..." : "Search"}
+        </Button>
       </div>
 
       {error && (
@@ -734,7 +1197,7 @@ export function Documents() {
               {folders.length === 0 ? (
                 <Card className="border-dashed">
                   <CardContent className="py-8 text-center text-muted-foreground">
-                    No folders created yet.
+                    {searchQuery ? "No matching folders found." : "No folders created yet."}
                   </CardContent>
                 </Card>
               ) : (
@@ -889,7 +1352,7 @@ export function Documents() {
               <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-3">
                 <h3 className="min-w-0 flex items-center gap-2 text-lg font-semibold">
                   <File className="w-5 h-5 text-primary" />
-                  Recent Files
+                  {searchQuery ? "Search Results" : "Recent Files"}
                 </h3>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {isSelectionMode && selectedFiles.length > 0 && (
@@ -911,8 +1374,8 @@ export function Documents() {
                 <Card className="border-dashed">
                   <CardContent className="py-12 text-center text-muted-foreground">
                     <Upload className="mx-auto mb-4 h-12 w-12 opacity-20" />
-                    <p>No files uploaded yet.</p>
-                    <p className="text-sm">Upload files to get started.</p>
+                    <p>{searchQuery ? "No matching files found." : "No files uploaded yet."}</p>
+                    <p className="text-sm">{searchQuery ? "Try a different search term." : "Upload files to get started."}</p>
                   </CardContent>
                 </Card>
               ) : (
@@ -921,12 +1384,16 @@ export function Documents() {
                     <FileRow
                       key={file.id}
                       file={file}
+                      canManage={file.ownerId === user.id}
+                      canReplace={canEditDocumentFile(file)}
                       showSelection={isSelectionMode}
                       isSelected={selectedFiles.includes(file.id)}
                       onToggleSelection={toggleFileSelection}
                       onDelete={handleDeleteFile}
                       onView={handleViewFile}
                       onDownload={handleDownloadFile}
+                      onPreview={setPreviewFile}
+                      onReplace={handleTriggerReplace}
                       folderTitle={
                         folders.find((folder) => folder.id === file.folderId)
                           ?.title
@@ -1042,7 +1509,7 @@ export function Documents() {
         onOpenChange={(open) => !open && setViewingFolder(null)}
         modal={false}
       >
-        <DialogContent className="flex max-h-[88vh] max-w-4xl flex-col overflow-hidden">
+        <DialogContent className="flex max-h-[88vh] sm:max-w-4xl flex-col overflow-hidden">
           <DialogHeader>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
@@ -1113,23 +1580,29 @@ export function Documents() {
             {viewingFolderFiles.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed bg-muted/30 py-20 text-muted-foreground">
                 <Folder className="mb-4 h-12 w-12 opacity-20" />
-                <p className="text-lg font-medium">Empty folder</p>
+                <p className="text-lg font-medium">
+                  {searchQuery ? "No matching files" : "Empty folder"}
+                </p>
                 <p className="text-sm">
-                  This folder does not have any files yet.
+                  {searchQuery ? "Try a different search term." : "This folder does not have any files yet."}
                 </p>
               </div>
             ) : (
               <div className="grid gap-3 pr-2">
                 {viewingFolderFiles.map((file) => (
-                  <FileRow
+                    <FileRow
                     key={file.id}
                     file={file}
+                    canManage={file.ownerId === user.id}
+                    canReplace={canEditDocumentFile(file)}
                     showSelection={isSelectionMode}
                     isSelected={selectedFiles.includes(file.id)}
                     onToggleSelection={toggleFileSelection}
                     onDelete={handleDeleteFile}
                     onView={handleViewFile}
                     onDownload={handleDownloadFile}
+                    onPreview={setPreviewFile}
+                    onReplace={handleTriggerReplace}
                   />
                 ))}
               </div>
@@ -1305,6 +1778,285 @@ export function Documents() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog 
+        open={isStagedModalOpen} 
+        onOpenChange={(open) => {
+          setIsStagedModalOpen(open);
+          if (!open) setStagedFiles([]);
+        }} 
+        modal={false}
+      >
+        <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+          <DialogHeader className="relative z-30 shrink-0 border-b bg-background p-6 pr-12 text-left">
+            <DialogTitle>Upload Files</DialogTitle>
+            <DialogDescription>
+              Review your files and add descriptions or assignments before uploading.
+            </DialogDescription>
+            <div className="absolute right-12 top-6">
+              <input
+                type="file"
+                multiple
+                id="add-more-staged-files"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => document.getElementById('add-more-staged-files')?.click()}
+                title="Add more files"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          
+          <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden min-h-0 relative z-10 p-6 pb-12">
+            <div className="grid gap-6">
+              {stagedFiles.map((staged) => (
+                <div key={staged.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg bg-muted/30 w-full overflow-hidden">
+                  <div className="w-full md:w-32 h-32 shrink-0 bg-muted rounded-md overflow-hidden flex items-center justify-center border">
+                    {staged.previewUrl ? (
+                      <img src={staged.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                        <File className="w-8 h-8" />
+                        <span className="text-[10px] uppercase font-bold">{staged.file.name.split('.').pop()}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0 space-y-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate text-sm" title={staged.file.name}>{staged.file.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{(staged.file.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleRemoveStagedFile(staged.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
+                      <div className="space-y-1.5 min-w-0">
+                        <Label htmlFor={`assign-${staged.id}`} className="text-[10px] uppercase font-bold text-muted-foreground">Assign to</Label>
+                        <div id={`assign-${staged.id}`}>
+                          <AssigneePicker
+                            users={users}
+                            value={staged.assignedToId ?? null}
+                            onChange={(assignedToId) =>
+                              handleUpdateStagedFile(staged.id, { assignedToId })
+                            }
+                            placeholder="Search users"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 min-w-0">
+                        <Label htmlFor={`desc-${staged.id}`} className="text-[10px] uppercase font-bold text-muted-foreground">Description</Label>
+                        <Textarea
+                          id={`desc-${staged.id}`}
+                          placeholder="Add description..."
+                          className="min-h-[60px] text-xs resize-none"
+                          value={staged.description}
+                          onChange={(e) => handleUpdateStagedFile(staged.id, { description: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <DialogFooter className="sticky bottom-0 z-30 shrink-0 border-t bg-background p-6">
+            <Button variant="outline" onClick={() => {
+              setStagedFiles([]);
+              setIsStagedModalOpen(false);
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmUpload} 
+              disabled={isUploading || stagedFiles.length === 0}
+            >
+              {isUploading ? "Uploading..." : `Upload ${stagedFiles.length} ${stagedFiles.length === 1 ? 'File' : 'Files'}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)} modal={false}>
+        <DialogContent className="flex max-h-[90vh] min-h-0 flex-col overflow-hidden p-0 sm:max-w-2xl gap-0">
+          <DialogHeader className="relative z-30 shrink-0 border-b bg-background p-6 pr-12 text-left">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className="flex min-w-0 items-center gap-2">
+                  <File className="w-5 h-5 shrink-0 text-primary" />
+                  <span className="truncate">{previewFile?.name}</span>
+                </DialogTitle>
+                <DialogDescription>
+                  File Details & Preview
+                </DialogDescription>
+              </div>
+              <div className="w-full sm:w-auto sm:shrink-0">
+                {canEditSharedPreview ? (
+                  <Select
+                    value={editedStatus}
+                    onValueChange={handleDraftStatusChange}
+                  >
+                    <SelectTrigger
+                      className={`h-8 w-full text-[10px] font-bold uppercase sm:w-[130px] ${
+                        editedStatus === "Completed"
+                          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-500"
+                          : editedStatus === "In Progress"
+                            ? "border-amber-500/20 bg-amber-500/10 text-amber-500"
+                            : "border-blue-500/20 bg-blue-500/10 text-blue-500"
+                      }`}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pending">Pending</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div
+                    className={`inline-flex h-8 items-center rounded-md border px-3 text-[10px] font-bold uppercase ${
+                      previewFile?.status === "Completed"
+                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-500"
+                        : previewFile?.status === "In Progress"
+                          ? "border-amber-500/20 bg-amber-500/10 text-amber-500"
+                          : "border-blue-500/20 bg-blue-500/10 text-blue-500"
+                    }`}
+                  >
+                    {previewFile?.status || "Pending"}
+                  </div>
+                )}
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden min-h-0 relative z-10">
+            <div className="space-y-6 p-6 pb-12">
+              <div className="flex min-h-[160px] max-h-[24vh] w-full items-center justify-center overflow-hidden rounded-lg border bg-muted/70 p-4">
+                {previewFile?.type.startsWith('image/') ? (
+                  <img
+                    src={previewFile.url}
+                    alt={previewFile.name}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground opacity-40">
+                    <File className="w-14 h-14" />
+                    <p className="text-sm font-medium uppercase tracking-widest">{previewFile?.type.split('/').pop()}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="min-w-0 space-y-1">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Size</Label>
+                  <p className="text-sm font-medium">{previewFile ? (previewFile.size / 1024).toFixed(1) + ' KB' : '-'}</p>
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Uploaded At</Label>
+                  <p className="text-sm font-medium">
+                    {previewFile ? format(new Date(previewFile.uploadedAt), "MMM d, yyyy p") : "-"}
+                  </p>
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+                    Assigned To
+                  </Label>
+                  <div className="mt-1">
+                    {canEditSharedPreview && previewFile ? (
+                      <AssigneePicker
+                        users={users}
+                        value={editedAssignmentId}
+                        onChange={handleDraftAssignmentChange}
+                        placeholder="Search users"
+                      />
+                    ) : (
+                      <div className="flex min-w-0 items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                          <UserIcon className="w-3 h-3 text-primary" />
+                        </div>
+                        <p className="min-w-0 truncate text-sm font-medium">
+                          {previewFile?.assignedTo?.fullname ||
+                            previewFile?.assignedTo?.username ||
+                            "Unassigned"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="min-w-0 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Description</Label>
+                  {canEditSharedPreview && !isEditingDescription && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={startEditingDescription}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+                {canEditSharedPreview && isEditingDescription ? (
+                  <div className="min-w-0 space-y-2">
+                    <Textarea
+                      className="block h-[120px] max-h-[120px] w-full min-w-0 max-w-full [field-sizing:fixed] overflow-y-auto overflow-x-hidden text-sm resize-none break-all [overflow-wrap:anywhere] whitespace-pre-wrap"
+                      value={editedDescription}
+                      onChange={(e) => {
+                        setEditedDescription(e.target.value);
+                        setHasUnsavedMetadataDraft(true);
+                      }}
+                      placeholder="Add a description..."
+                    />
+                  </div>
+                ) : (
+                  <div className="h-[120px] w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden rounded-lg border bg-muted/30 p-4">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                      {previewFile?.description || "No description provided."}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {canEditSharedPreview && (
+            <DialogFooter className="sticky bottom-0 z-30 shrink-0 border-t bg-background p-6">
+              <div className="flex w-full items-center justify-between gap-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                  {hasUnsavedMetadataDraft ? "Unsaved Changes" : "Document Settings"}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" onClick={resetMetadataDraft}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveMetadata}
+                    disabled={!hasUnsavedMetadataDraft}
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
